@@ -1,27 +1,28 @@
 import os
 import uuid
 import requests
+import pyttsx3
+
 from fastapi import FastAPI, UploadFile, File, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from faster_whisper import WhisperModel
 
 # ============================
-# CONFIGURATION
+# CONFIG
 # ============================
 
-WHISPER_MODEL_SIZE = "base"   # tiny, base, small, medium
+WHISPER_MODEL_SIZE = "base"
 OLLAMA_MODEL = "llama3"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 
-MISTY_IP = "192.168.1.10"  # 🔴 CHANGE THIS to your Misty IP
+USE_LLM = True  # Set False if you only want transcription
 
 # ============================
-# INITIALIZE APP
+# INIT
 # ============================
 
 app = FastAPI()
 
-# Enable CORS (for frontend access)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -30,30 +31,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ============================
-# GLOBAL STORAGE
-# ============================
-
 jobs = {}
 whisper_model = None
 
+# Text-to-Speech engine
+tts_engine = pyttsx3.init()
+
 # ============================
-# STARTUP: LOAD WHISPER
+# STARTUP
 # ============================
 
 @app.on_event("startup")
-async def load_models():
+async def load_model():
     global whisper_model
     print("Loading Whisper model...")
     whisper_model = WhisperModel(
         WHISPER_MODEL_SIZE,
-        compute_type="int8"  # Faster on CPU
+        compute_type="int8"
     )
-    print("Whisper model loaded.")
+    print("Whisper loaded.")
 
 
 # ============================
-# HEALTH TEST
+# TEST ENDPOINT
 # ============================
 
 @app.post("/test")
@@ -62,7 +62,7 @@ def test(data: dict):
 
 
 # ============================
-# SPEECH TO TEXT ENDPOINT
+# SPEECH TO TEXT
 # ============================
 
 @app.post("/stt")
@@ -80,22 +80,20 @@ async def stt(
 
     file_path = f"temp_{job_id}.wav"
 
-    # Save uploaded file
     with open(file_path, "wb") as f:
         f.write(await file.read())
 
-    # Start background processing
     background_tasks.add_task(process_audio, job_id, file_path)
 
     return {"job_id": job_id, "status": "received"}
 
 
 # ============================
-# STATUS ENDPOINT
+# STATUS
 # ============================
 
 @app.get("/status/{job_id}")
-def get_status(job_id: str):
+def status(job_id: str):
     if job_id not in jobs:
         return {"error": True, "message": "Job not found"}
 
@@ -103,63 +101,43 @@ def get_status(job_id: str):
 
 
 # ============================
-# MANUAL ACTION ENDPOINT
-# ============================
-
-@app.post("/action")
-def action(data: dict):
-    action_name = data.get("action")
-
-    if not action_name:
-        return {"error": True, "message": "No action provided"}
-
-    speak(f"Performing {action_name}")
-
-    return {"status": "ok"}
-
-
-# ============================
-# BACKGROUND PROCESSING
+# BACKGROUND PROCESS
 # ============================
 
 def process_audio(job_id, file_path):
     try:
-        # -----------------------
-        # STEP 1: TRANSCRIBE
-        # -----------------------
+        # STEP 1 — TRANSCRIBE
         jobs[job_id]["status"] = "transcribing"
 
         segments, info = whisper_model.transcribe(file_path)
-        transcript = " ".join([segment.text for segment in segments]).strip()
+        transcript = " ".join([seg.text for seg in segments]).strip()
 
         jobs[job_id]["text"] = transcript
 
-        # -----------------------
-        # STEP 2: LLM
-        # -----------------------
-        jobs[job_id]["status"] = "thinking"
+        # STEP 2 — LLM (optional)
+        if USE_LLM:
+            jobs[job_id]["status"] = "thinking"
 
-        system_prompt = "You are Misty, a friendly and helpful robot assistant."
+            system_prompt = "You are a helpful assistant."
+            full_prompt = f"{system_prompt}\nUser: {transcript}\nAssistant:"
 
-        full_prompt = f"{system_prompt}\nUser: {transcript}\nMisty:"
+            response = requests.post(
+                OLLAMA_URL,
+                json={
+                    "model": OLLAMA_MODEL,
+                    "prompt": full_prompt,
+                    "stream": False
+                }
+            )
 
-        response = requests.post(
-            OLLAMA_URL,
-            json={
-                "model": OLLAMA_MODEL,
-                "prompt": full_prompt,
-                "stream": False
-            }
-        )
+            reply = response.json().get("response", "").strip()
+        else:
+            reply = transcript
 
-        llm_output = response.json().get("response", "").strip()
+        jobs[job_id]["response"] = reply
 
-        jobs[job_id]["response"] = llm_output
-
-        # -----------------------
-        # STEP 3: SEND TO MISTY
-        # -----------------------
-        speak(llm_output)
+        # STEP 3 — SPEAK THROUGH SPEAKER
+        speak(reply)
 
         jobs[job_id]["status"] = "done"
 
@@ -168,18 +146,14 @@ def process_audio(job_id, file_path):
         jobs[job_id]["error"] = str(e)
 
     finally:
-        # Clean temp file
         if os.path.exists(file_path):
             os.remove(file_path)
 
 
 # ============================
-# MISTY SPEECH FUNCTION
+# TEXT TO SPEECH
 # ============================
 
 def speak(text):
-    try:
-        url = f"http://{MISTY_IP}/api/tts/speak"
-        requests.post(url, json={"Text": text})
-    except:
-        print("Failed to send speech to Misty")
+    tts_engine.say(text)
+    tts_engine.runAndWait()
