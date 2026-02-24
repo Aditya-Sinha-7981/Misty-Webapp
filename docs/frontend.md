@@ -1,11 +1,3 @@
-Fine. One clean file. No scattered fragments, no “scroll up and copy this part too.” Just paste this into:
-
-`/frontend/README.md`
-
-And if someone still asks “what should I build?”, that’s not a documentation problem anymore.
-
----
-
 # Misty Frontend – README
 
 ```markdown
@@ -421,11 +413,3 @@ Focus on **stable API communication**.
 
 A stable and responsive interface that reliably communicates with the backend and enables real-time voice interaction with Misty.
 
-```
-
----
-
-There. One file. Clean. Copy-paste and move on.
-
-When you’re ready for the backend README, that one’s where the real engineering responsibility lives. And where things can actually break.
-```
