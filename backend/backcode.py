@@ -1,27 +1,46 @@
 import os
 import uuid
+import shutil
+import asyncio
 import requests
-import pyttsx3
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, UploadFile, File, BackgroundTasks
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from faster_whisper import WhisperModel
 
-# ============================
-# CONFIG
-# ============================
 
-WHISPER_MODEL_SIZE = "base"
-OLLAMA_MODEL = "llama3"
-OLLAMA_URL = "http://localhost:11434/api/generate"
+# =====================================
+# GLOBAL VARIABLES
+# =====================================
 
-USE_LLM = True  # Set False if you only want transcription
+jobs = {}
+whisper_model = None
 
-# ============================
-# INIT
-# ============================
 
-app = FastAPI()
+# =====================================
+# LIFESPAN (Load Whisper Once)
+# =====================================
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global whisper_model
+
+    print("\n🔄 Loading Whisper model...")
+    whisper_model = WhisperModel("base", compute_type="int8")
+    print("✅ Whisper model loaded successfully!\n")
+
+    yield
+
+    print("🛑 Server shutting down...")
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+# =====================================
+# CORS (Allow Frontend)
+# =====================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,129 +50,119 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-jobs = {}
-whisper_model = None
 
-# Text-to-Speech engine
-tts_engine = pyttsx3.init()
+# =====================================
+# CREATE UPLOAD FOLDER
+# =====================================
 
-# ============================
-# STARTUP
-# ============================
-
-@app.on_event("startup")
-async def load_model():
-    global whisper_model
-    print("Loading Whisper model...")
-    whisper_model = WhisperModel(
-        WHISPER_MODEL_SIZE,
-        compute_type="int8"
-    )
-    print("Whisper loaded.")
+UPLOAD_DIR = "backend/uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
-# ============================
-# TEST ENDPOINT
-# ============================
+# =====================================
+# OLLAMA FUNCTION (FAST + SHORT)
+# =====================================
 
-@app.post("/test")
-def test(data: dict):
-    return {"reply": f"Server received: {data.get('message')}"}
+def get_ollama_response(prompt: str):
+    try:
+        print("📡 Sending request to Ollama...")
+
+        # Force short and relevant answer
+        formatted_prompt = f"""
+        Answer the following question in 2-3 short sentences only.
+        Be clear, direct, and relevant.
+
+        Question:
+        {prompt}
+        """
+
+        response = requests.post(
+            "http://127.0.0.1:11434/api/generate",
+            json={
+                "model": "tinyllama:latest",   # Fast lightweight model
+                "prompt": formatted_prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.3,       # More focused answers
+                    "num_predict": 120        # Limit response length
+                }
+            },
+            timeout=60
+        )
+
+        result = response.json()
+        return result.get("response", "").strip()
+
+    except Exception as e:
+        print("❌ Ollama Error:", str(e))
+        return "Error getting response from Ollama."
 
 
-# ============================
-# SPEECH TO TEXT
-# ============================
+# =====================================
+# AUDIO PROCESSING FUNCTION
+# =====================================
 
-@app.post("/stt")
-async def stt(
-    file: UploadFile = File(...),
-    background_tasks: BackgroundTasks = None
-):
+async def process_audio(job_id: str, file_path: str):
+    try:
+        print("\n============================")
+        print("🎤 NEW AUDIO RECEIVED")
+
+        # 1️⃣ Transcribe
+        segments, info = whisper_model.transcribe(file_path)
+        transcript = " ".join([seg.text for seg in segments]).strip()
+
+        print("📝 Transcription:")
+        print(transcript)
+
+        # 2️⃣ Send to Ollama
+        reply = get_ollama_response(transcript)
+
+        print("\n🤖 Ollama Response:")
+        print(reply)
+        print("============================\n")
+
+        # 3️⃣ Save results
+        jobs[job_id]["status"] = "done"
+        jobs[job_id]["text"] = transcript
+        jobs[job_id]["response"] = reply
+
+    except Exception as e:
+        jobs[job_id]["status"] = "error"
+        jobs[job_id]["text"] = ""
+        jobs[job_id]["response"] = ""
+        print("❌ Error:", str(e))
+
+
+# =====================================
+# UPLOAD ENDPOINT
+# =====================================
+
+@app.post("/upload")
+async def upload_audio(file: UploadFile = File(...)):
     job_id = str(uuid.uuid4())
+    file_path = os.path.join(UPLOAD_DIR, f"{job_id}.wav")
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
 
     jobs[job_id] = {
-        "status": "received",
+        "status": "processing",
         "text": "",
         "response": ""
     }
 
-    file_path = f"temp_{job_id}.wav"
+    asyncio.create_task(process_audio(job_id, file_path))
 
-    with open(file_path, "wb") as f:
-        f.write(await file.read())
-
-    background_tasks.add_task(process_audio, job_id, file_path)
-
-    return {"job_id": job_id, "status": "received"}
+    return {"job_id": job_id}
 
 
-# ============================
-# STATUS
-# ============================
+# =====================================
+# STATUS ENDPOINT
+# =====================================
 
 @app.get("/status/{job_id}")
-def status(job_id: str):
+async def get_status(job_id: str):
     if job_id not in jobs:
-        return {"error": True, "message": "Job not found"}
+        return {"error": "Invalid job id"}
 
     return jobs[job_id]
-
-
-# ============================
-# BACKGROUND PROCESS
-# ============================
-
-def process_audio(job_id, file_path):
-    try:
-        # STEP 1 — TRANSCRIBE
-        jobs[job_id]["status"] = "transcribing"
-
-        segments, info = whisper_model.transcribe(file_path)
-        transcript = " ".join([seg.text for seg in segments]).strip()
-
-        jobs[job_id]["text"] = transcript
-
-        # STEP 2 — LLM (optional)
-        if USE_LLM:
-            jobs[job_id]["status"] = "thinking"
-
-            system_prompt = "You are a helpful assistant."
-            full_prompt = f"{system_prompt}\nUser: {transcript}\nAssistant:"
-
-            response = requests.post(
-                OLLAMA_URL,
-                json={
-                    "model": OLLAMA_MODEL,
-                    "prompt": full_prompt,
-                    "stream": False
-                }
-            )
-
-            reply = response.json().get("response", "").strip()
-        else:
-            reply = transcript
-
-        jobs[job_id]["response"] = reply
-
-        # STEP 3 — SPEAK THROUGH SPEAKER
-        speak(reply)
-
-        jobs[job_id]["status"] = "done"
-
-    except Exception as e:
-        jobs[job_id]["status"] = "error"
-        jobs[job_id]["error"] = str(e)
-
-    finally:
-        if os.path.exists(file_path):
-            os.remove(file_path)
-
-
-# ============================
-# TEXT TO SPEECH
-# ============================
-
-def speak(text):
-    tts_engine.say(text)
-    tts_engine.runAndWait()
