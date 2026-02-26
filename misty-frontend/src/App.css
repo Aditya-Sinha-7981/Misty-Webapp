@@ -1,0 +1,49 @@
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* MAIN CONTENT */
+.main-content {
+  flex: 1;
+  margin-left: 240px;
+  transition: margin 0.3s ease;
+}
+
+/* MOBILE HEADER */
+.mobile-header {
+  display: none;
+}
+
+/* ================= MOBILE ================= */
+@media (max-width: 768px) {
+
+  .main-content {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .mobile-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: #0B2E33;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    z-index: 1100;
+  }
+
+  .menu-btn {
+    background: none;
+    border: none;
+    font-size: 22px;
+    color: white;
+    cursor: pointer;
+  }
+
+}
