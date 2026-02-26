@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload WAV</title>
+</head>
+<body>
+
+<h2>Upload WAV File</h2>
+
+<input type="file" id="audioFile" accept=".wav">
+<button onclick="uploadFile()">Upload</button>
+
+<script>
+async function uploadFile() {
+    const fileInput = document.getElementById("audioFile");
+    const file = fileInput.files[0];
+
+    if (!file) {
+        alert("Please select a WAV file.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("http://127.0.0.1:8000/upload", {
+        method: "POST",
+        body: formData
+    });
+
+    const data = await response.json();
+
+    console.log(data);
+    alert("Job ID: " + data.job_id);
+
+    // 🔥 OPTIONAL: Automatically check status
+    checkStatus(data.job_id);
+}
+
+async function checkStatus(jobId) {
+    const interval = setInterval(async () => {
+        const response = await fetch(`http://127.0.0.1:8000/status/${jobId}`);
+        const data = await response.json();
+
+        console.log(data);
+
+        if (data.status === "done") {
+            clearInterval(interval);
+            alert("Transcription:\n" + data.text);
+        }
+    }, 2000); // check every 2 seconds
+}
+</script>
+
+</body>
+</html>
