@@ -1,161 +1,126 @@
-const recordBtn = document.getElementById("recordBtn");
+const holdBtn = document.getElementById("holdBtn");
+const toggleBtn = document.getElementById("toggleBtn");
 const transcriptionBox = document.getElementById("transcription");
 const responseBox = document.getElementById("response");
 const statusEl = document.getElementById("status");
 const backendUrlEl = document.getElementById("backendUrl");
 
-// Backend URL from config.js - can be changed in config.js
-// const BACKEND_URL is already defined globally from config.js
+backendUrlEl.textContent = BACKEND_URL;
 
 let mediaRecorder = null;
 let audioChunks = [];
-let isRecording = false;
+let currentStream = null;
 
-// ============ INITIALIZE ============
-
-window.addEventListener("DOMContentLoaded", () => {
-  // Display the configured backend URL
-  if (backendUrlEl && typeof BACKEND_URL !== 'undefined') {
-    backendUrlEl.textContent = BACKEND_URL;
-    backendUrlEl.style.color = "#93B1B5";
-  }
-});
-
-// ============ RECORDING FUNCTIONS ============
+/* ================= START RECORDING ================= */
 
 async function startRecording() {
-  try {
-    audioChunks = [];
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    
-    mediaRecorder = new MediaRecorder(stream);
-    isRecording = true;
 
-    mediaRecorder.ondataavailable = (event) => {
-      audioChunks.push(event.data);
+  if (mediaRecorder && mediaRecorder.state === "recording") return;
+
+  try {
+    currentStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    mediaRecorder = new MediaRecorder(currentStream);
+    audioChunks = [];
+
+    mediaRecorder.ondataavailable = e => {
+      if (e.data.size > 0) audioChunks.push(e.data);
     };
 
     mediaRecorder.onstop = async () => {
-      isRecording = false;
+      stopMicStream();
       await sendAudioToBackend();
     };
 
     mediaRecorder.start();
-    recordBtn.classList.add("recording");
-    recordBtn.textContent = "🔴 RECORDING...";
-    statusEl.textContent = "Recording audio...";
-  } catch (error) {
-    statusEl.textContent = "❌ Microphone error: " + error.message;
-    recordBtn.textContent = "🎙️ HOLD TO SPEAK";
+
+    holdBtn.classList.add("recording");
+    statusEl.textContent = "Recording...";
+    toggleBtn.textContent = "⏹ Stop Recording";
+
+  } catch (err) {
+    statusEl.textContent = "Microphone error: " + err.message;
   }
 }
+
+/* ================= STOP RECORDING ================= */
 
 function stopRecording() {
-  if (mediaRecorder && isRecording) {
+
+  if (!mediaRecorder) return;
+
+  if (mediaRecorder.state === "recording") {
     mediaRecorder.stop();
-    recordBtn.classList.remove("recording");
-    recordBtn.textContent = "⏳ PROCESSING...";
-    statusEl.textContent = "Processing audio...";
-    recordBtn.disabled = true;
+    holdBtn.classList.remove("recording");
+    statusEl.textContent = "Processing...";
+    toggleBtn.textContent = "▶ Start Recording";
   }
 }
 
-// ============ SEND TO BACKEND ============
+function stopMicStream() {
+  if (currentStream) {
+    currentStream.getTracks().forEach(track => track.stop());
+    currentStream = null;
+  }
+}
+
+/* ================= SEND AUDIO ================= */
 
 async function sendAudioToBackend() {
-  try {
-    const blob = new Blob(audioChunks, { type: "audio/wav" });
-    const formData = new FormData();
-    formData.append("file", blob, "recording.wav");
 
-    // Step 1: Upload audio
-    statusEl.textContent = "Uploading to backend...";
-    const uploadResponse = await fetch(`${BACKEND_URL}/upload`, {
+  const blob = new Blob(audioChunks, { type: "audio/wav" });
+  const formData = new FormData();
+  formData.append("file", blob, "recording.wav");
+
+  try {
+    const uploadRes = await fetch(`${BACKEND_URL}/upload`, {
       method: "POST",
-      body: formData,
+      body: formData
     });
 
-    if (!uploadResponse.ok) {
-      throw new Error(`Upload failed: ${uploadResponse.status}`);
-    }
+    const data = await uploadRes.json();
+    pollForResults(data.job_id);
 
-    const uploadData = await uploadResponse.json();
-    const jobId = uploadData.job_id;
-
-    if (!jobId) {
-      throw new Error("No job_id returned from backend");
-    }
-
-    // Step 2: Poll for results
-    statusEl.textContent = "Waiting for response...";
-    await pollForResults(jobId);
-  } catch (error) {
-    statusEl.textContent = "❌ Error: " + error.message;
-    recordBtn.textContent = "🎙️ HOLD TO SPEAK";
-    recordBtn.disabled = false;
+  } catch (err) {
+    statusEl.textContent = "Upload failed";
   }
 }
 
-// ============ POLL STATUS ============
+/* ================= POLL ================= */
 
 async function pollForResults(jobId) {
-  const maxAttempts = 120; // 60 seconds (120 * 500ms)
-  let attempts = 0;
 
-  while (attempts < maxAttempts) {
-    try {
-      const statusResponse = await fetch(`${BACKEND_URL}/status/${jobId}`);
-      const statusData = await statusResponse.json();
+  while (true) {
 
-      if (statusData.status === "done") {
-        // Success!
-        transcriptionBox.value = statusData.text || "(no transcription)";
-        responseBox.value = statusData.response || "(no response)";
-        statusEl.textContent = "✅ Done!";
-        recordBtn.textContent = "🎙️ HOLD TO SPEAK";
-        recordBtn.disabled = false;
-        return;
-      } else if (statusData.status === "error") {
-        // Error in backend
-        transcriptionBox.value = "ERROR";
-        responseBox.value = statusData.response || "Unknown error";
-        statusEl.textContent = "❌ Backend error";
-        recordBtn.textContent = "🎙️ HOLD TO SPEAK";
-        recordBtn.disabled = false;
-        return;
-      }
+    const res = await fetch(`${BACKEND_URL}/status/${jobId}`);
+    const data = await res.json();
 
-      // Still processing, wait and retry
-      statusEl.textContent = `Processing... (${attempts + 1}s)`;
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      attempts++;
-    } catch (error) {
-      statusEl.textContent = "❌ Status check error: " + error.message;
-      recordBtn.textContent = "🎙️ HOLD TO SPEAK";
-      recordBtn.disabled = false;
+    if (data.status === "done") {
+      transcriptionBox.value = data.text || "";
+      responseBox.value = data.response || "";
+      statusEl.textContent = "Done";
       return;
     }
-  }
 
-  // Timeout
-  statusEl.textContent = "⏱️ Processing timeout (took >60s)";
-  recordBtn.textContent = "🎙️ HOLD TO SPEAK";
-  recordBtn.disabled = false;
+    if (data.status === "error") {
+      statusEl.textContent = "Backend Error";
+      return;
+    }
+
+    await new Promise(r => setTimeout(r, 1000));
+  }
 }
 
-// ============ BUTTON EVENTS ============
+/* ================= EVENTS ================= */
 
-recordBtn.addEventListener("mousedown", startRecording);
-recordBtn.addEventListener("mouseup", stopRecording);
-recordBtn.addEventListener("mouseleave", stopRecording);
+holdBtn.addEventListener("mousedown", startRecording);
+holdBtn.addEventListener("mouseup", stopRecording);
+holdBtn.addEventListener("mouseleave", stopRecording);
 
-// Touch support for mobile
-recordBtn.addEventListener("touchstart", (e) => {
-  e.preventDefault();
-  startRecording();
-});
-
-recordBtn.addEventListener("touchend", (e) => {
-  e.preventDefault();
-  stopRecording();
+toggleBtn.addEventListener("click", () => {
+  if (!mediaRecorder || mediaRecorder.state === "inactive") {
+    startRecording();
+  } else {
+    stopRecording();
+  }
 });

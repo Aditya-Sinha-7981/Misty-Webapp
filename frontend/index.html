@@ -2,38 +2,53 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>Misty Voice Assistant</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Misty AI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
 <div class="container">
-  <div class="header">
-    <h1>🎤 Misty Voice Assistant</h1>
-    <p class="status" id="status">Ready to listen...</p>
-  </div>
 
-  <div class="controls">
-    <button id="recordBtn" class="record-btn">🎙️ HOLD TO SPEAK</button>
-    <p class="hint">Hold down the button and speak clearly</p>
-  </div>
+  <header>
+    <h1>Misty AI</h1>
+    <div id="status" class="status">Ready</div>
+  </header>
 
-  <div class="results">
-    <div class="result-box">
-      <h3>📝 You said:</h3>
-      <textarea id="transcription" readonly placeholder="Your transcription will appear here..."></textarea>
+  <section class="recorder">
+
+    <!-- HOLD BUTTON -->
+    <div id="holdBtn" class="mic-circle">
+      <div class="mic-inner"></div>
+    </div>
+    <p class="mode-text">Hold to Talk</p>
+
+    <!-- TOGGLE BUTTON -->
+    <button id="toggleBtn" class="toggle-btn">
+      ▶ Start Recording
+    </button>
+
+  </section>
+
+  <section class="results">
+
+    <div class="card">
+      <h3>You Said</h3>
+      <textarea id="transcription" readonly></textarea>
     </div>
 
-    <div class="result-box">
-      <h3>🤖 Misty says:</h3>
-      <textarea id="response" readonly placeholder="Misty's response will appear here..."></textarea>
+    <div class="card">
+      <h3>Misty Response</h3>
+      <textarea id="response" readonly></textarea>
     </div>
-  </div>
 
-  <div class="info">
-    <p>Backend: <span id="backendUrl">-</span></p>
-  </div>
+  </section>
+
+  <footer>
+    Backend: <span id="backendUrl"></span>
+  </footer>
+
 </div>
 
 <script src="config.js"></script>
