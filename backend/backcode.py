@@ -60,7 +60,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 # =====================================
-# OLLAMA FUNCTION WITH KEYWORD CONTROL
+# OLLAMA FUNCTION (Token Safe Version)
 # =====================================
 
 def get_ollama_response(prompt: str):
@@ -72,31 +72,65 @@ def get_ollama_response(prompt: str):
         # 🔥 Detect keywords
         detailed = "long answer" in lower_prompt
         example = "with example" in lower_prompt
+        bullet = "bullet points" in lower_prompt
+        step = "step by step" in lower_prompt
+        technical = "technical explanation" in lower_prompt
+        beginner = "explain like beginner" in lower_prompt
+        table = "table format" in lower_prompt
+        real_world = "real world example" in lower_prompt
+        interview = "for interview" in lower_prompt
 
-        # 🔥 Remove keywords from question
-        cleaned_prompt = lower_prompt.replace("long answer", "")
-        cleaned_prompt = cleaned_prompt.replace("with example", "")
+        # 🔥 Remove keywords
+        keywords = [
+            "long answer",
+            "with example",
+            "bullet points",
+            "step by step",
+            "technical explanation",
+            "explain like beginner",
+            "table format",
+            "real world example",
+            "for interview"
+        ]
 
-        # 🔥 Build instruction dynamically
-        instruction = "Answer clearly and relevantly."
+        cleaned_prompt = lower_prompt
+        for word in keywords:
+            cleaned_prompt = cleaned_prompt.replace(word, "")
+
+        # 🔥 Build instruction
+        instruction = "Answer clearly and completely within the given space."
 
         if detailed:
             instruction += " Give a detailed explanation."
         else:
-            instruction += " Keep the answer short (2-3 sentences)."
+            instruction += " Keep it concise but complete."
 
+        if bullet:
+            instruction += " Use bullet points."
+        if step:
+            instruction += " Use numbered steps."
+        if table:
+            instruction += " Respond strictly in table format."
+        if technical:
+            instruction += " Use technical terminology."
+        if beginner:
+            instruction += " Use simple beginner-friendly language."
         if example:
             instruction += " Include a simple example."
+        if real_world:
+            instruction += " Include a real world example."
+        if interview:
+            instruction += " Structure the answer professionally."
 
         final_prompt = f"""
-        {instruction}
+{instruction}
 
-        Question:
-        {cleaned_prompt.strip()}
-        """
+Question:
+{cleaned_prompt.strip()}
+"""
 
-        # 🔥 Adjust output length dynamically
-        max_tokens = 300 if detailed else 120
+        # 🔥 KEEP ORIGINAL TOKEN LIMITS
+        max_tokens = 150 if not detailed else 300
 
         response = requests.post(
             "http://127.0.0.1:11434/api/generate",
@@ -105,15 +139,44 @@ def get_ollama_response(prompt: str):
                 "prompt": final_prompt,
                 "stream": False,
                 "options": {
-                    "temperature": 0.3,
+                    "temperature": 0.2,
                     "num_predict": max_tokens
                 }
             },
             timeout=60
         )
 
-        result = response.json()
-        return result.get("response", "").strip()
+        answer = response.json().get("response", "").strip()
+
+        # ==========================================
+        # 🔥 CUT-OFF CLEANING LOGIC
+        # ==========================================
+
+        if table:
+            # Keep only complete table rows
+            lines = answer.split("\n")
+            cleaned_lines = []
+
+            for line in lines:
+                if "|" in line:
+                    cleaned_lines.append(line)
+                else:
+                    break
+
+            answer = "\n".join(cleaned_lines)
+
+        else:
+            # Trim to last full sentence
+            last_period = max(
+                answer.rfind("."),
+                answer.rfind("!"),
+                answer.rfind("?")
+            )
+
+            if last_period != -1:
+                answer = answer[:last_period + 1]
+
+        return answer.strip()
 
     except Exception as e:
         print("❌ Ollama Error:", str(e))
