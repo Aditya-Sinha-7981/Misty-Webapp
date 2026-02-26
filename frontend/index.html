@@ -3,43 +3,40 @@
 <head>
   <meta charset="UTF-8" />
   <title>Misty Voice Assistant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-<div class="mobile-header">
-  <button id="menuBtn">☰</button>
-  <span>Misty</span>
-</div>
-
-<div class="overlay" id="overlay"></div>
-
-<div class="sidebar" id="sidebar">
-  <div class="logo-section">
-    <img src="asset/misty.png" alt="Misty">
-    <h2>Misty</h2>
+<div class="container">
+  <div class="header">
+    <h1>🎤 Misty Voice Assistant</h1>
+    <p class="status" id="status">Ready to listen...</p>
   </div>
 
-  <nav>
-    <a href="#" class="active">🎙 Voice Console</a>
-    <a href="#">🕹 Command Center</a>
-  </nav>
-</div>
+  <div class="controls">
+    <button id="recordBtn" class="record-btn">🎙️ HOLD TO SPEAK</button>
+    <p class="hint">Hold down the button and speak clearly</p>
+  </div>
 
-<div class="main-content">
-  <h1>Misty Voice Assistant</h1>
+  <div class="results">
+    <div class="result-box">
+      <h3>📝 You said:</h3>
+      <textarea id="transcription" readonly placeholder="Your transcription will appear here..."></textarea>
+    </div>
 
-  <button id="recordBtn">Hold to Speak</button>
+    <div class="result-box">
+      <h3>🤖 Misty says:</h3>
+      <textarea id="response" readonly placeholder="Misty's response will appear here..."></textarea>
+    </div>
+  </div>
 
-  <textarea id="speechBox" placeholder="Your speech will appear here..."></textarea>
-
-  <button id="sendBtn">Send to Misty</button>
-
-  <div class="response-box" id="responseBox">
-    Misty reply will appear here...
+  <div class="info">
+    <p>Backend: <span id="backendUrl">-</span></p>
   </div>
 </div>
 
+<script src="config.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
