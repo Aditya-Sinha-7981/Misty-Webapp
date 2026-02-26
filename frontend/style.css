@@ -1,0 +1,92 @@
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, #0B2E33, #4F7C82);
+  color: white;
+}
+
+.mobile-header {
+  display: none;
+}
+
+.sidebar {
+  width: 240px;
+  background: #0B2E33;
+  height: 100vh;
+  position: fixed;
+  padding: 30px 20px;
+  transition: 0.3s;
+  box-shadow: 4px 0 25px rgba(0,0,0,0.5);
+}
+
+.logo-section {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.logo-section img {
+  width: 80px;
+  border-radius: 12px;
+}
+
+.sidebar nav a {
+  display: block;
+  padding: 15px;
+  margin-bottom: 10px;
+  color: white;
+  text-decoration: none;
+  border-radius: 12px;
+  transition: 0.3s;
+}
+
+.sidebar nav a:hover,
+.sidebar nav a.active {
+  background: #4F7C82;
+}
+
+.main-content {
+  margin-left: 240px;
+  padding: 40px;
+}
+
+h1 {
+  text-align: center;
+}
+
+#recordBtn,
+#sendBtn {
+  width: 100%;
+  padding: 18px;
+  border-radius: 30px;
+  border: none;
+  background: linear-gradient(90deg, #93B1B5, #B8E3E9);
+  color: #0B2E33;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-bottom: 20px;
+  transition: 0.3s;
+}
+
+#recordBtn:hover,
+#sendBtn:hover {
+  transform: scale(1.03);
+}
+
+textarea {
+  width: 100%;
+  height: 120px;
+  border-radius: 16px;
+  border: none;
+  padding: 15px;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.response-box {
+  background: #B8E3E9;
+  color: #0B2E33;
+  padding: 15px;
+  border-radius: 16px;
+  min-height: 60px;
+}

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Misty Voice Assistant</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="mobile-header">
+  <button id="menuBtn">☰</button>
+  <span>Misty</span>
+</div>
+
+<div class="overlay" id="overlay"></div>
+
+<div class="sidebar" id="sidebar">
+  <div class="logo-section">
+    <img src="asset/misty.png" alt="Misty">
+    <h2>Misty</h2>
+  </div>
+
+  <nav>
+    <a href="#" class="active">🎙 Voice Console</a>
+    <a href="#">🕹 Command Center</a>
+  </nav>
+</div>
+
+<div class="main-content">
+  <h1>Misty Voice Assistant</h1>
+
+  <button id="recordBtn">Hold to Speak</button>
+
+  <textarea id="speechBox" placeholder="Your speech will appear here..."></textarea>
+
+  <button id="sendBtn">Send to Misty</button>
+
+  <div class="response-box" id="responseBox">
+    Misty reply will appear here...
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
