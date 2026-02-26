@@ -60,31 +60,53 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 # =====================================
-# OLLAMA FUNCTION (FAST + SHORT)
+# OLLAMA FUNCTION WITH KEYWORD CONTROL
 # =====================================
 
 def get_ollama_response(prompt: str):
     try:
         print("📡 Sending request to Ollama...")
 
-        # Force short and relevant answer
-        formatted_prompt = f"""
-        Answer the following question in 2-3 short sentences only.
-        Be clear, direct, and relevant.
+        lower_prompt = prompt.lower()
+
+        # 🔥 Detect keywords
+        detailed = "long answer" in lower_prompt
+        example = "with example" in lower_prompt
+
+        # 🔥 Remove keywords from question
+        cleaned_prompt = lower_prompt.replace("long answer", "")
+        cleaned_prompt = cleaned_prompt.replace("with example", "")
+
+        # 🔥 Build instruction dynamically
+        instruction = "Answer clearly and relevantly."
+
+        if detailed:
+            instruction += " Give a detailed explanation."
+        else:
+            instruction += " Keep the answer short (2-3 sentences)."
+
+        if example:
+            instruction += " Include a simple example."
+
+        final_prompt = f"""
+        {instruction}
 
         Question:
-        {prompt}
+        {cleaned_prompt.strip()}
         """
+
+        # 🔥 Adjust output length dynamically
+        max_tokens = 300 if detailed else 120
 
         response = requests.post(
             "http://127.0.0.1:11434/api/generate",
             json={
-                "model": "tinyllama:latest",   # Fast lightweight model
-                "prompt": formatted_prompt,
+                "model": "tinyllama:latest",
+                "prompt": final_prompt,
                 "stream": False,
                 "options": {
-                    "temperature": 0.3,       # More focused answers
-                    "num_predict": 120        # Limit response length
+                    "temperature": 0.3,
+                    "num_predict": max_tokens
                 }
             },
             timeout=60
