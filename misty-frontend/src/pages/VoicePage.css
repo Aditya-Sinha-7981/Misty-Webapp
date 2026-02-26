@@ -1,0 +1,38 @@
+.voice-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #0b2e33, #4f7c82);
+  color: white;
+}
+
+h1 {
+  margin-bottom: 20px;
+}
+
+.record-btn {
+  padding: 16px 40px;
+  border: none;
+  border-radius: 40px;
+  font-size: 18px;
+  background: linear-gradient(90deg, #93b1b5, #4f7c82);
+  color: white;
+  cursor: pointer;
+  transition: 0.3s ease;
+}
+
+.record-btn.recording {
+  background: #ff4c4c;
+}
+
+textarea {
+  margin-top: 20px;
+  width: 320px;
+  height: 120px;
+  border-radius: 12px;
+  padding: 10px;
+  border: none;
+  resize: none;
+}
