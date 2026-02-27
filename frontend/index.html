@@ -4,54 +4,84 @@
   <meta charset="UTF-8" />
   <title>Misty AI</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
 
-<div class="container">
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="logo-section">
+    <img src="asset/misty.png" alt="Misty">
+    <h2>Misty</h2>
+  </div>
 
-  <header>
-    <h1>Misty AI</h1>
-    <div id="status" class="status">Ready</div>
-  </header>
-
-  <section class="recorder">
-
-    <!-- HOLD BUTTON -->
-    <div id="holdBtn" class="mic-circle">
-      <div class="mic-inner"></div>
-    </div>
-    <p class="mode-text">Hold to Talk</p>
-
-    <!-- TOGGLE BUTTON -->
-    <button id="toggleBtn" class="toggle-btn">
-      ▶ Start Recording
-    </button>
-
-  </section>
-
-  <section class="results">
-
-    <div class="card">
-      <h3>You Said</h3>
-      <textarea id="transcription" readonly></textarea>
-    </div>
-
-    <div class="card">
-      <h3>Misty Response</h3>
-      <textarea id="response" readonly></textarea>
-    </div>
-
-  </section>
-
-  <footer>
-    Backend: <span id="backendUrl"></span>
-  </footer>
-
+  <div class="nav-buttons">
+    <button>🎤 Voice Panel</button>
+    <button>🎮 Movement</button>
+    <button>🤖 AI Status</button>
+    <button>📜 Activity</button>
+    <button>📷 Camera</button>
+  </div>
 </div>
 
-<script src="config.js"></script>
-<script src="script.js"></script>
+<!-- MAIN CONTENT -->
+<div class="main-content">
+
+  <!-- Mobile Toggle -->
+  <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+
+  <div id="content">
+
+    <header>
+      <h1>Misty AI</h1>
+      
+    </header>
+
+    <section class="recorder">
+      <div id="holdBtn" class="mic-circle">
+        <div class="mic-inner"></div>
+      </div>
+
+      <p>Hold to Talk</p>
+
+      <button id="toggleBtn" class="toggle-btn">
+        ▶ Start Recording
+      </button>
+    </section>
+
+    <section class="results">
+      <div class="card">
+        <h3>You Said</h3>
+        <textarea id="transcription" readonly></textarea>
+      </div>
+
+      <div class="card">
+        <h3>Misty Response</h3>
+        <textarea id="response" readonly></textarea>
+      </div>
+    </section>
+
+    <div class="answer-options">
+      <div class="option-tag">detailed</div>
+      <div class="option-tag">example</div>
+      <div class="option-tag">bullet</div>
+      <div class="option-tag">step</div>
+      <div class="option-tag">technical</div>
+      <div class="option-tag">beginner</div>
+      <div class="option-tag">table</div>
+      <div class="option-tag">real_world</div>
+      <div class="option-tag">interview</div>
+    </div>
+
+    <footer>
+      Backend: <span id="backendUrl"></span>
+    </footer>
+
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/voice.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
