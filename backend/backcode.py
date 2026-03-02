@@ -11,7 +11,7 @@ from faster_whisper import WhisperModel
 
 
 # =====================================
-# GLOBAL VARIABLES
+# GLOBAL VARIABLES AND CONFIG
 # =====================================
 
 jobs = {}
