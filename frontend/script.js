@@ -81,7 +81,7 @@ async function sendTextToBackend(text) {
   try {
     sendTextBtn.disabled = true;
     textInput.disabled = true;
-    statusEl.textContent = "Sending text...";
+    statusEl.textContent = "📨 Sending your message to Misty...";
 
     const response = await fetch(`${BACKEND_URL}/text-input`, {
       method: "POST",
@@ -96,17 +96,74 @@ async function sendTextToBackend(text) {
     }
 
     const data = await response.json();
-    statusEl.textContent = "✅ Text sent!";
-    textInput.value = ""; // Clear input
-    if (charCountEl) charCountEl.textContent = "0"; // Reset counter
+    const jobId = data.job_id;
 
+    if (!jobId) {
+      throw new Error("No job_id returned from backend");
+    }
+
+    // Poll for text processing results
+    statusEl.textContent = "💭 Misty is thinking...";
+    await pollForTextResults(jobId);
   } catch (error) {
     statusEl.textContent = "❌ Send failed: " + error.message;
-  } finally {
     sendTextBtn.disabled = false;
     textInput.disabled = false;
-    textInput.focus();
   }
+}
+
+// ============ POLL TEXT RESULTS ============
+
+async function pollForTextResults(jobId) {
+  const maxAttempts = 60; // 30 seconds (60 * 500ms)
+  let attempts = 0;
+
+  while (attempts < maxAttempts) {
+    try {
+      const statusResponse = await fetch(`${BACKEND_URL}/status/${jobId}`);
+      const statusData = await statusResponse.json();
+
+      if (statusData.status === "done") {
+        // Success!
+        transcriptionBox.value = statusData.text || "(no text)";
+        responseBox.value = statusData.response || "(no response)";
+        statusEl.textContent = "✅ Misty has responded!";
+        sendTextBtn.disabled = false;
+        textInput.disabled = false;
+        textInput.value = ""; // Clear input
+        if (charCountEl) charCountEl.textContent = "0"; // Reset counter
+        textInput.focus();
+        return;
+      } else if (statusData.status === "error") {
+        // Error in backend
+        transcriptionBox.value = statusData.text || "ERROR";
+        responseBox.value = statusData.response || "Unknown error";
+        statusEl.textContent = "❌ Misty had a brain glitch...";
+        sendTextBtn.disabled = false;
+        textInput.disabled = false;
+        return;
+      }
+
+      // Update status with fun message
+      if (statusData.message) {
+        statusEl.textContent = statusData.message;
+      }
+
+      // Still processing, wait and retry
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      attempts++;
+    } catch (error) {
+      statusEl.textContent = "❌ Status check error: " + error.message;
+      sendTextBtn.disabled = false;
+      textInput.disabled = false;
+      return;
+    }
+  }
+
+  // Timeout
+  statusEl.textContent = "⏱️ Misty is taking too long to think...";
+  sendTextBtn.disabled = false;
+  textInput.disabled = false;
 }
 
 // ============ SEND AUDIO TO BACKEND ============

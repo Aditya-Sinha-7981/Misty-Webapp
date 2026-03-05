@@ -200,12 +200,21 @@ async def process_audio(job_id: str, file_path: str):
         print("\n============================")
         print("🎤 NEW AUDIO RECEIVED")
 
+        # 1️⃣ Update status: Starting transcription
+        jobs[job_id]["status"] = "transcribing"
+        jobs[job_id]["message"] = "🧠 Misty is listening carefully..."
+
         # 1️⃣ Transcribe
         segments, info = whisper_model.transcribe(file_path)
         transcript = " ".join([seg.text for seg in segments]).strip()
 
         print("📝 Transcription:")
         print(transcript)
+
+        # 2️⃣ Update status: Getting AI response
+        jobs[job_id]["status"] = "thinking"
+        jobs[job_id]["message"] = "🤔 Misty's circuits are firing up!"
+        jobs[job_id]["text"] = transcript  # Save transcript early
 
         # 2️⃣ Send to Ollama
         reply = get_ollama_response(transcript)
@@ -214,15 +223,16 @@ async def process_audio(job_id: str, file_path: str):
         print(reply)
         print("============================\n")
 
-        # 3️⃣ Save results
+        # 3️⃣ Update status: Complete
         jobs[job_id]["status"] = "done"
-        jobs[job_id]["text"] = transcript
+        jobs[job_id]["message"] = "✨ Misty has crafted a response!"
         jobs[job_id]["response"] = reply
 
     except Exception as e:
         jobs[job_id]["status"] = "error"
         jobs[job_id]["text"] = ""
         jobs[job_id]["response"] = ""
+        jobs[job_id]["message"] = "😵 Oops! Misty had a brain glitch..."
         print("❌ Error:", str(e))
 
 
@@ -239,9 +249,10 @@ async def upload_audio(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, buffer)
 
     jobs[job_id] = {
-        "status": "processing",
+        "status": "uploading",
         "text": "",
-        "response": ""
+        "response": "",
+        "message": "📤 Uploading your voice to Misty..."
     }
 
     asyncio.create_task(process_audio(job_id, file_path))
@@ -262,25 +273,55 @@ async def get_status(job_id: str):
 
 
 # =====================================
+# TEXT PROCESSING FUNCTION
+# =====================================
+
+async def process_text(job_id: str, text: str):
+    try:
+        print("\n============================")
+        print("📝 TEXT INPUT RECEIVED")
+        print("Text:", text)
+
+        # 1️⃣ Update status: Processing text
+        jobs[job_id]["status"] = "thinking"
+        jobs[job_id]["message"] = "💭 Misty is pondering your words..."
+        jobs[job_id]["text"] = text  # Save text immediately
+
+        # 2️⃣ Send to Ollama
+        reply = get_ollama_response(text)
+
+        print("\n🤖 Ollama Response:")
+        print(reply)
+        print("============================\n")
+
+        # 3️⃣ Update status: Complete
+        jobs[job_id]["status"] = "done"
+        jobs[job_id]["message"] = "🎉 Misty has crafted a brilliant response!"
+        jobs[job_id]["response"] = reply
+
+    except Exception as e:
+        jobs[job_id]["status"] = "error"
+        jobs[job_id]["text"] = text
+        jobs[job_id]["response"] = ""
+        jobs[job_id]["message"] = "😵 Misty's brain got tangled in thoughts..."
+        print("❌ Text processing error:", str(e))
+
+
+# =====================================
 # TEXT INPUT ENDPOINT
 # =====================================
 
 @app.post("/text-input")
 async def process_text_input(text: str = Form(...)):
-    try:
-        print("\n============================")
-        print("📝 TEXT INPUT RECEIVED")
-        print("Text:", text)
-        print("============================\n")
+    job_id = str(uuid.uuid4())
 
-        return {
-            "status": "success",
-            "message": "Text received and logged"
-        }
+    jobs[job_id] = {
+        "status": "receiving",
+        "text": "",
+        "response": "",
+        "message": "📨 Misty received your message..."
+    }
 
-    except Exception as e:
-        print("❌ Text processing error:", str(e))
-        return {
-            "status": "error",
-            "message": f"Error: {str(e)}"
-        }
+    asyncio.create_task(process_text(job_id, text))
+
+    return {"job_id": job_id}
