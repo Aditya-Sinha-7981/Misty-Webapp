@@ -2,10 +2,15 @@ import os
 import uuid
 import shutil
 import asyncio
-import requests
+try:
+    import requests
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    REQUESTS_AVAILABLE = False
+    print("⚠️  Requests module not available - Ollama features disabled")
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from faster_whisper import WhisperModel
 
@@ -64,6 +69,9 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 # =====================================
 
 def get_ollama_response(prompt: str):
+    if not REQUESTS_AVAILABLE:
+        return "Ollama unavailable - requests module not installed"
+
     try:
         print("📡 Sending request to Ollama...")
 
@@ -251,3 +259,28 @@ async def get_status(job_id: str):
         return {"error": "Invalid job id"}
 
     return jobs[job_id]
+
+
+# =====================================
+# TEXT INPUT ENDPOINT
+# =====================================
+
+@app.post("/text-input")
+async def process_text_input(text: str = Form(...)):
+    try:
+        print("\n============================")
+        print("📝 TEXT INPUT RECEIVED")
+        print("Text:", text)
+        print("============================\n")
+
+        return {
+            "status": "success",
+            "message": "Text received and logged"
+        }
+
+    except Exception as e:
+        print("❌ Text processing error:", str(e))
+        return {
+            "status": "error",
+            "message": f"Error: {str(e)}"
+        }
