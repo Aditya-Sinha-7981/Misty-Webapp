@@ -384,8 +384,9 @@ async function sendTextToBackend(text) {
   try {
     sendTextBtn.disabled = true;
     textInput.disabled = true;
-    statusEl.textContent = "Sending text...";
+    statusEl.textContent = "Sending text to Misty...";
 
+    // Step 1: Send text
     const response = await fetch(`${BACKEND_URL}/text-input`, {
       method: "POST",
       headers: {
@@ -399,16 +400,63 @@ async function sendTextToBackend(text) {
     }
 
     const data = await response.json();
-    statusEl.textContent = "✅ Text sent!";
-    textInput.value = ""; // Clear input
+    const jobId = data.job_id;
+
+    if (!jobId) {
+      throw new Error("No job_id returned");
+    }
+
+    // Step 2: Poll for Ollama response
+    statusEl.textContent = "Waiting for Misty's response...";
+    await pollForTextResults(jobId);
 
   } catch (error) {
-    statusEl.textContent = "❌ Send failed: " + error.message;
+    statusEl.textContent = "❌ Error: " + error.message;
   } finally {
     sendTextBtn.disabled = false;
     textInput.disabled = false;
     textInput.focus();
   }
+}
+
+// ============ POLL TEXT RESULTS ============
+
+async function pollForTextResults(jobId) {
+  const maxAttempts = 120;
+  let attempts = 0;
+
+  while (attempts < maxAttempts) {
+    try {
+      const statusResponse = await fetch(`${BACKEND_URL}/status/${jobId}`);
+      const statusData = await statusResponse.json();
+
+      if (statusData.status === "done") {
+        // Success!
+        transcriptionBox.value = statusData.text || "(no text)";
+        responseBox.value = statusData.response || "(no response)";
+        statusEl.textContent = "✅ Done!";
+        textInput.value = ""; // Clear input
+        return;
+      } else if (statusData.status === "error") {
+        // Error in backend
+        transcriptionBox.value = statusData.text || "ERROR";
+        responseBox.value = statusData.response || "Unknown error";
+        statusEl.textContent = "❌ Backend error";
+        return;
+      }
+
+      // Still processing
+      statusEl.textContent = statusData.message || `Processing... (${attempts + 1}s)`;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      attempts++;
+    } catch (error) {
+      statusEl.textContent = "❌ Status check error: " + error.message;
+      return;
+    }
+  }
+
+  // Timeout
+  statusEl.textContent = "⏱️ Processing timeout (took >60s)";
 }
 
 // ============ SEND AUDIO TO BACKEND ============
